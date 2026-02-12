@@ -201,6 +201,20 @@ pub(crate) fn get_all_contexts_uuids_from_pool() -> Result<Vec<(String, Uuid)>, 
     }
 }
 
+pub(crate) fn list_contexts() -> Vec<String> {
+    match global_pool() {
+        #[cfg(not(feature = "concurrent-map"))]
+        GlobalUuidPool::SingleThreaded(pool) => {
+            let map = pool.lock();
+            map.keys().map(|context| context.to_string()).collect()
+        }
+        #[cfg(feature = "concurrent-map")]
+        GlobalUuidPool::Concurrent(pool) => {
+            pool.iter().map(|entry| entry.key().to_string()).collect()
+        }
+    }
+}
+
 pub(crate) fn clear_context(context: &str) {
     match global_pool() {
         #[cfg(not(feature = "concurrent-map"))]
@@ -291,5 +305,15 @@ pub(crate) fn drain_all_contexts() -> Result<Vec<(String, Uuid)>, UuidPoolError>
             
             Ok(pairs)
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct SingleThreadedTests {
+
     }
 }

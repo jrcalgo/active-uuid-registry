@@ -110,6 +110,15 @@ pub fn get_all() -> Result<Vec<(String, Uuid)>, UuidPoolError> {
     crate::registry::get_all_contexts_uuids_from_pool()
 }
 
+/// Gets all contexts currently registered in the pool.
+/// 
+/// #### Returns
+/// * `Vec<String>`: all context names
+#[inline(always)]
+pub fn list_contexts() -> Vec<String> {
+    crate::registry::list_contexts()
+}
+
 /// Clear the given context and all associated UUIDs from memory.
 /// 
 /// #### Arguments
