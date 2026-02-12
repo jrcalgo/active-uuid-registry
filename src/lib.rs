@@ -1,6 +1,6 @@
-mod registry;
-
 pub mod interface;
+
+mod registry;
 
 /// UUID generation code with thread-safe pool management.
 ///
@@ -13,4 +13,10 @@ pub enum UuidPoolError {
     FailedToFindUuidInPoolError(String),
     #[error("Failed to set UUID in pool: {0}")]
     FailedToSetUuidInPoolError(String),
+    #[error("Failed to add UUID to pool: {0}")]
+    FailedToAddUuidToPoolError(String),
+    #[error("Failed to remove UUID from pool: {0}")]
+    FailedToRemoveUuidFromPoolError(String),
+    #[error("Failed to replace UUID in pool: {0}")]
+    FailedToReplaceUuidInPoolError(String),
 }
