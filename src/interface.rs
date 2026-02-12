@@ -122,7 +122,7 @@ pub fn clear_context(context: &str) {
 /// Clears all contexts and all associated UUIDs from memory.
 #[inline(always)]
 pub fn clear_all_contexts() {
-    crate::registry::clear_all()
+    crate::registry::clear_all_contexts()
 }
 
 /// Clears and returns the given context and all associated UUIDs from memory.

@@ -215,7 +215,7 @@ pub(crate) fn clear_context(context: &str) {
     }
 }
 
-pub(crate) fn clear_all() {
+pub(crate) fn clear_all_contexts() {
     match global_pool() {
         #[cfg(not(feature = "concurrent-map"))]
         GlobalUuidPool::SingleThreaded(pool) => {

@@ -1,6 +1,6 @@
 # active-uuid-registry
 
-A functional interface for managing sets of UUIDs organized by named contexts in a global registry.
+A functional interface for managing sets of UUIDs organized by named contexts in a global registry. Useful for tracking running components in dynamic and complex systems.
 
 ## Installation
 
@@ -8,7 +8,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-active-uuid-registry = "0.3.0"
+active-uuid-registry = "0.4.0"
 ```
 
 By default, the registry uses a mutex-protected hashmap of arc<str> and hashsets.
@@ -16,7 +16,7 @@ For concurrent access with DashMap/DashSet, enable the `concurrent-map` feature:
 
 ```toml
 [dependencies]
-active-uuid-registry = { version = "0.3.0", features = ["concurrent-map"] }
+active-uuid-registry = { version = "0.4.0", features = ["concurrent-map"] }
 ```
 
 ## Usage
@@ -32,6 +32,7 @@ let reserve_res: Result<Uuid, UuidPoolError> = reserve("server");
 // Add an existing UUID to a context
 let custom_uuid = Uuid::...; // create your UUID here
 let add_res: Result<(), UuidPoolError> = add("client", custom_uuid);
+let add_res: Result<(), UuidPoolError> = add("player_entity", custom_uuid);
 
 // Remove a UUID from a context
 let remove_res: Result<(), UuidPoolError> = remove("client", uuid);
@@ -54,7 +55,13 @@ let all_ids: Result<Vec<(String, Uuid)>, UuidPoolError> = get_all();
 let clear_res: Result<(), UuidPoolError> = clear_context("server");
 
 // Clear all UUIDs from all contexts
-let clear_res: Result<(), UuidPoolError> = clear_all();
+let clear_res: Result<(), UuidPoolError> = clear_all_contexts();
+
+// Clears and returns all UUIDs from a certain context
+let drain_res: Result<Vec<(String, Uuid)>, UuidPoolError> = drain_context("player_entity");
+
+// Clears and returns all UUIDs from all contexts
+let drain_res: Result<Vec<(String, Uuid)>, UuidPoolError> = drain_all_contexts();
 ```
 
 ## API
@@ -71,7 +78,9 @@ let clear_res: Result<(), UuidPoolError> = clear_all();
 | `get(context)` | Get all UUIDs stored for a specific context |
 | `get_all()` | Get all UUIDs stored | 
 | `clear_context(context)` | Remove all UUIDS from a specific context |
-| `clear_all()` | Remove all UUIDs from all contexts |
+| `clear_all_contexts()` | Remove all UUIDs from all contexts |
+| `drain_context(context)` | Removes and returns all UUIDs from a specific context |
+| `drain_all_contexts()` | Removes and returns all UUIDs from all contexts |
 
 ## License
 
