@@ -1,6 +1,5 @@
 use super::UuidPoolError;
 
-use rand::Rng;
 use std::sync::{Arc, OnceLock};
 use uuid::Uuid;
 
@@ -46,7 +45,7 @@ fn make_uuid_with_base(base: u32) -> Uuid {
     let mut bytes = [0u8; 16];
     bytes[0..4].copy_from_slice(&base.to_be_bytes());
     for i in bytes.iter_mut().skip(4) {
-        *i = rand::rng().random_range(0..=255);
+        *i = rand::random_range(0..=255);
     }
     Uuid::new_v8(bytes)
 }
@@ -69,23 +68,6 @@ fn try_insert(context: &str, uuid: Uuid) -> bool {
     }
 }
 
-fn contains(context: &str, uuid: Uuid) -> bool {
-    match global_pool() {
-        #[cfg(not(feature = "concurrent-map"))]
-        GlobalUuidPool::SingleThreaded(pool) => {
-            let map = pool.lock();
-            map.get(context)
-                .map(|set| set.contains(&uuid))
-                .unwrap_or(false)
-        }
-        #[cfg(feature = "concurrent-map")]
-        GlobalUuidPool::Concurrent(pool) => pool
-            .get(context)
-            .map(|set_ref| set_ref.value().contains(&uuid))
-            .unwrap_or(false),
-    }
-}
-
 fn remove(context: &str, uuid: Uuid) -> bool {
     match global_pool() {
         #[cfg(not(feature = "concurrent-map"))]
@@ -102,37 +84,18 @@ fn remove(context: &str, uuid: Uuid) -> bool {
             removed
         }
         #[cfg(feature = "concurrent-map")]
-        GlobalUuidPool::Concurrent(pool) => pool
-            .get(context)
-            .map(|set_ref| set_ref.value().remove(&uuid).is_some())
-            .unwrap_or(false),
-    }
-}
-
-fn clear_context(context: &str) {
-    match global_pool() {
-        #[cfg(not(feature = "concurrent-map"))]
-        GlobalUuidPool::SingleThreaded(pool) => {
-            let mut map = pool.lock();
-            map.remove(context);
-        }
-        #[cfg(feature = "concurrent-map")]
         GlobalUuidPool::Concurrent(pool) => {
-            pool.remove(context);
-        }
-    }
-}
-
-fn clear_all() {
-    match global_pool() {
-        #[cfg(not(feature = "concurrent-map"))]
-        GlobalUuidPool::SingleThreaded(pool) => {
-            let mut map = pool.lock();
-            map.clear();
-        }
-        #[cfg(feature = "concurrent-map")]
-        GlobalUuidPool::Concurrent(pool) => {
-            pool.clear();
+            let removed = pool.get(context).map(|set_ref| set_ref.value().remove(&uuid).is_some()).unwrap_or(false);
+        
+            if removed {
+                if let Some(set_ref) = pool.get(context) {
+                    if set_ref.value().is_empty() {
+                        drop(set_ref);
+                        pool.remove(context);
+                    }
+                }
+            }
+            removed
         }
     }
 }
@@ -160,21 +123,11 @@ pub(crate) fn random_uuid(
 }
 
 pub(crate) fn add_uuid_to_pool(context: &str, uuid: &Uuid) -> Result<(), UuidPoolError> {
-    match contains(context, *uuid) {
-        true => {
-            return Err(UuidPoolError::FailedToGenerateUniqueUuidError(format!(
-                "UUID already exists in pool for context '{}': {}",
-                context, uuid
-            )));
-        }
-        false => {
-            if !try_insert(context, *uuid) {
-                return Err(UuidPoolError::FailedToGenerateUniqueUuidError(format!(
-                    "UUID already exists in pool for context '{}': {}",
-                    context, uuid
-                )));
-            }
-        }
+    if !try_insert(context, *uuid) {
+        return Err(UuidPoolError::FailedToAddUuidToPoolError(format!(
+            "Failed to add UUID to pool for context '{}': {}",
+            context, uuid
+        )));
     }
 
     Ok(())
@@ -183,7 +136,7 @@ pub(crate) fn add_uuid_to_pool(context: &str, uuid: &Uuid) -> Result<(), UuidPoo
 pub(crate) fn remove_uuid_from_pool(context: &str, uuid: &Uuid) -> Result<(), UuidPoolError> {
     match remove(context, *uuid) {
         true => Ok(()),
-        false => Err(UuidPoolError::FailedToFindUuidInPoolError(
+        false => Err(UuidPoolError::FailedToRemoveUuidFromPoolError(
             "Failed to locate/remove UUID in pool".to_string(),
         )),
     }
@@ -194,16 +147,12 @@ pub(crate) fn replace_uuid_in_pool(
     old_uuid: &Uuid,
     new_uuid: &Uuid,
 ) -> Result<(), UuidPoolError> {
-    if !contains(context, *old_uuid) {
-        add_uuid_to_pool(context, new_uuid)?
-    }
-
     match remove(context, *old_uuid) {
         true => {
             if !try_insert(context, *new_uuid) {
-                return Err(UuidPoolError::FailedToSetUuidInPoolError(format!(
-                    "Failed to find UUID in pool for context '{}': {}",
-                    context, old_uuid
+                return Err(UuidPoolError::FailedToReplaceUuidInPoolError(format!(
+                    "Failed to insert new UUID in pool for context '{}': {}",
+                    context, new_uuid
                 )));
             }
         }
@@ -223,11 +172,11 @@ pub(crate) fn get_context_uuids_from_pool(context: &str) -> Result<Vec<(String, 
         #[cfg(not(feature = "concurrent-map"))]
         GlobalUuidPool::SingleThreaded(pool) => {
             let map = pool.lock();
-            map.get(context).map(|set| set.clone().iter().map(|uuid| (context.to_string(), *uuid)).collect()).ok_or(UuidPoolError::FailedToFindUuidInPoolError(format!("Failed to find UUIDs in pool for context '{}'", context)))
+            map.get(context).map(|set| set.iter().map(|uuid| (context.to_string(), *uuid)).collect()).ok_or(UuidPoolError::FailedToFindUuidInPoolError(format!("Failed to find UUIDs in pool for context '{}'", context)))
         }
         #[cfg(feature = "concurrent-map")]
         GlobalUuidPool::Concurrent(pool) => {
-            pool.get(context).map(|set| set.value().clone().iter().map(|uuid| (context.to_string(), *uuid)).collect()).ok_or(UuidPoolError::FailedToFindUuidInPoolError(format!("Failed to find UUIDs in pool for context '{}'", context)))
+            pool.get(context).map(|set| set.value().iter().map(|uuid| (context.to_string(), *uuid)).collect()).ok_or(UuidPoolError::FailedToFindUuidInPoolError(format!("Failed to find UUIDs in pool for context '{}'", context)))
         }
     }
 }
@@ -252,12 +201,95 @@ pub(crate) fn get_all_contexts_uuids_from_pool() -> Result<Vec<(String, Uuid)>, 
     }
 }
 
-pub(crate) fn drain_context(context: &str) -> Result<(), UuidPoolError> {
-    clear_context(context);
-    Ok(())
+pub(crate) fn clear_context(context: &str) {
+    match global_pool() {
+        #[cfg(not(feature = "concurrent-map"))]
+        GlobalUuidPool::SingleThreaded(pool) => {
+            let mut map = pool.lock();
+            map.remove(context);
+        }
+        #[cfg(feature = "concurrent-map")]
+        GlobalUuidPool::Concurrent(pool) => {
+            pool.remove(context);
+        }
+    }
 }
 
-pub(crate) fn drain_all_contexts() -> Result<(), UuidPoolError> {
-    clear_all();
-    Ok(())
+pub(crate) fn clear_all() {
+    match global_pool() {
+        #[cfg(not(feature = "concurrent-map"))]
+        GlobalUuidPool::SingleThreaded(pool) => {
+            let mut map = pool.lock();
+            map.clear();
+        }
+        #[cfg(feature = "concurrent-map")]
+        GlobalUuidPool::Concurrent(pool) => {
+            pool.clear();
+        }
+    }
+}
+
+pub(crate) fn drain_context(context: &str) -> Result<Vec<(String, Uuid)>, UuidPoolError> {
+    match global_pool() {
+        #[cfg(not(feature = "concurrent-map"))]
+        GlobalUuidPool::SingleThreaded(pool) => {
+            let mut map = pool.lock();
+            let pairs = map
+                .get(context)
+                .map(|set| set.iter().map(|uuid| (context.to_string(), *uuid)).collect())
+                .ok_or(UuidPoolError::FailedToFindUuidInPoolError(format!(
+                    "Failed to find UUIDs in pool for context '{}'",
+                    context
+                )))?;
+            map.remove(context);
+            Ok(pairs)
+        }
+        #[cfg(feature = "concurrent-map")]
+        GlobalUuidPool::Concurrent(pool) => {
+            let set = pool
+                .remove(context)
+                .ok_or(UuidPoolError::FailedToFindUuidInPoolError(format!(
+                    "Failed to find UUIDs in pool for context '{}'",
+                    context
+                )))?;
+
+            let pairs = set.1.iter().map(|uuid| (context.to_string(), *uuid)).collect();
+            
+            Ok(pairs)
+        }
+    }
+}
+
+pub(crate) fn drain_all_contexts() -> Result<Vec<(String, Uuid)>, UuidPoolError> {
+    match global_pool() {
+        #[cfg(not(feature = "concurrent-map"))]
+        GlobalUuidPool::SingleThreaded(pool) => {
+            let mut map = pool.lock();
+            let pairs: Vec<(String, Uuid)> = map
+                .iter()
+                .flat_map(|(context, ids)| {
+                    ids.iter().map(move |id| (context.to_string(), *id))
+                })
+                .collect();
+            map.clear();
+            Ok(pairs)
+        }
+        #[cfg(feature = "concurrent-map")]
+        GlobalUuidPool::Concurrent(pool) => {
+            // drains an acquired snapshot of the pool
+            let mut pairs = Vec::new();
+            
+            let keys: Vec<ContextKey> = pool.iter().map(|entry| entry.key().clone()).collect();
+            
+            for key in keys {
+                if let Some((context, set)) = pool.remove(&*key) {
+                    for uuid in set.iter() {
+                        pairs.push((context.to_string(), *uuid));
+                    }
+                }
+            }
+            
+            Ok(pairs)
+        }
+    }
 }
