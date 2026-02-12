@@ -1,9 +1,9 @@
 [package]
 name = "active-uuid-registry"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["jrcalgo <jacksonr121@outlook.com"]
 edition = "2024"
-description = "A library for managing process UUIDs"
+description = "A library for managing context-aware process UUIDs "
 repository = "https://github.com/jrcalgo/active-uuid-registry"
 readme = "README.md"
 keywords = ['uuid', 'guid', 'concurrency', 'pool', 'synchronization']
