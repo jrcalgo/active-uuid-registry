@@ -8,7 +8,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-active-uuid-registry = "0.4.0"
+active-uuid-registry = "0.4.1"
 ```
 
 By default, the registry uses a mutex-protected hashmap of arc<str> and hashsets.
@@ -16,7 +16,7 @@ For concurrent access with DashMap/DashSet, enable the `concurrent-map` feature:
 
 ```toml
 [dependencies]
-active-uuid-registry = { version = "0.4.0", features = ["concurrent-map"] }
+active-uuid-registry = { version = "0.4.1", features = ["concurrent-map"] }
 ```
 
 ## Usage
