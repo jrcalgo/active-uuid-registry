@@ -2,6 +2,10 @@ pub mod interface;
 
 mod registry;
 
+pub mod registry_uuid {
+    pub use uuid::*;
+}
+
 /// UUID generation code with thread-safe pool management.
 ///
 /// This module provides functions for generating unique UUIDs and tracking them in a thread-safe pool.
