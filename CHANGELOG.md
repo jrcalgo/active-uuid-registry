@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-02-19
+
+### Added
+- **Namespace Pool Segmentation** — Registry pool refactored into a two-level `namespace → context → Set<Uuid>` structure (`HashMap<NamespaceKey, HashMap<ContextKey, HashSet<Uuid>>>` / `DashMap<NamespaceKey, DashMap<ContextKey, DashSet<Uuid>>>`)
+- **Namespace Management** — `add_namespace()`, `remove_namespace()`, `replace_namespace()` for pre-creating, removing, and renaming namespaces
+- **Namespace Queries** — `get_namespace_pairs()` to retrieve all context-UUID pairs within a namespace; `list_namespaces()` to list all registered namespaces
+- **Namespace Drain Operations** — `drain_namespace()` and `drain_all_namespaces()` for atomic read-and-clear of a single namespace or all namespaces, returning `Vec<(namespace, context, uuid)>` triples
+
+### Changed
+- **Global UUID Pool Structure** — Pool is now two-level nested (`namespace → context → UUIDs`) in both single-threaded and concurrent-map feature variants
+- **Public API Signatures** — All context-scoped functions now require `namespace: &str` as their first argument (`reserve_id`, `reserve_id_with_base`, `reserve_id_with`, `add_id`, `remove_id`, `try_remove_id`, `replace_id`, `get_pairs`, `list_contexts`, `clear_context`, `drain_context`, `drain_all_contexts`)
+- **`drain_all_contexts(namespace)`** — Now scoped to a single namespace and returns `Vec<(String, String, Uuid)>` (namespace, context, uuid) triples instead of `Vec<(String, Uuid)>`
+- **`clear_all_contexts()`** — Renamed to `clear_all()` in the public interface to reflect that it clears all namespaces, not just contexts
+- **Empty Namespace Cleanup** — `remove()` now cleans up empty inner context maps and empty namespace entries after UUID removal
+
+### Breaking
+- All public interface functions that previously accepted only `context: &str` now require `namespace: &str` as first argument
+- `clear_all_contexts()` renamed to `clear_all()` in public interface
+- `drain_all_contexts()` return type changed from `Result<Vec<(String, Uuid)>, UuidPoolError>` to `Result<Vec<(String, String, Uuid)>, UuidPoolError>`
+- `list_contexts()` now requires a `namespace: &str` argument
+
 ## [0.4.0] - 2026-02-12
 
 ### Added
