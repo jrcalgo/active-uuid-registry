@@ -1,6 +1,6 @@
 # active-uuid-registry
 
-A functional interface for managing sets of UUIDs organized by named contexts in a global registry. Useful for tracking running components in dynamic and complex systems.
+A library for managing in-process, namespace- and context-aware UUIDs for liveness tracking. UUIDs are organized in a two-level global registry (`namespace -> context -> UUID set`), making it straightforward to track running components across logical scopes in dynamic systems.
 
 ## Installation
 
@@ -8,79 +8,103 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-active-uuid-registry = "0.4.1"
+active-uuid-registry = "0.5.0"
 ```
 
-By default, the registry uses a mutex-protected hashmap of arc<str> and hashsets.
-For concurrent access with DashMap/DashSet, enable the `concurrent-map` feature:
+By default, the registry uses a mutex-protected `HashMap` with `Arc<str>` keys and `HashSet<Uuid>` values.
+For high-concurrency workloads, enable the `concurrent-map` feature to use `DashMap`/`DashSet` instead:
 
 ```toml
 [dependencies]
-active-uuid-registry = { version = "0.4.1", features = ["concurrent-map"] }
+active-uuid-registry = { version = "0.5.0", features = ["concurrent-map"] }
 ```
 
 ## Usage
 
 ```rust
-use active_uuid_registry::interface::{reserve, add, remove, try_remove, replace, get, get_all, clear_context, clear_all};
+use active_uuid_registry::interface::*;
 use active_uuid_registry::UuidPoolError;
-use uuid::Uuid;
 
-// Reserve a new UUID in a named context
-let reserve_res: Result<Uuid, UuidPoolError> = reserve("server");
+// Pre-create a namespace (optional — auto-created on first insert)
+reserve_namespace("my_app");
 
-// Add an existing UUID to a context
-let custom_uuid = Uuid::...; // create your UUID here
-let add_res: Result<(), UuidPoolError> = add("client", custom_uuid);
-let add_res: Result<(), UuidPoolError> = add("player_entity", custom_uuid);
+// Reserve a new UUID in a namespace + context
+let id = reserve_id("my_app", "server")?;
 
-// Remove a UUID from a context
-let remove_res: Result<(), UuidPoolError> = remove("client", uuid);
+// Add an existing UUID
+add_id("my_app", "client", some_uuid)?;
 
-// Try to remove the UUID from the `client` context
-let removed: bool = try_remove("client", custom_uuid);
+// Remove a UUID
+remove_id("my_app", "client", some_uuid)?;
 
-// Replace one UUID with another within the same context
-let old = reserve("server").unwrap();
-let new = Uuid::...; // create your UUID here
-let replace_res: Result<(), UuidPoolError> = replace("server", old, new);
+// Try-remove (returns bool instead of Result)
+let removed: bool = try_remove_id("my_app", "client", some_uuid);
 
-// Get all UUIDs for any given context
-let ids: Result<Vec<(String, Uuid)>, UuidPoolError> = get("server");
+// Replace a UUID within a context
+replace_id("my_app", "server", old_uuid, new_uuid)?;
 
-// Get all UUIDs currently stored
-let all_ids: Result<Vec<(String, Uuid)>, UuidPoolError> = get_all();
+// Query UUIDs
+let pairs = get_pairs("my_app", "server")?;  // Vec<(String, Uuid)>
+let ns_pairs = get_namespace_pairs("my_app")?;  // all contexts in namespace
+let all_pairs = get_all_pairs()?;  // all namespaces
 
-// Clear all UUIDs from a certain context
-let clear_res: Result<(), UuidPoolError> = clear_context("server");
+// List registered namespaces and contexts
+let namespaces = list_namespaces();
+let contexts = list_contexts("my_app");
 
-// Clear all UUIDs from all contexts
-let clear_res: Result<(), UuidPoolError> = clear_all_contexts();
+// Clear (non-returning)
+clear_context("my_app", "server");
+clear_all();
 
-// Clears and returns all UUIDs from a certain context
-let drain_res: Result<Vec<(String, Uuid)>, UuidPoolError> = drain_context("player_entity");
-
-// Clears and returns all UUIDs from all contexts
-let drain_res: Result<Vec<(String, Uuid)>, UuidPoolError> = drain_all_contexts();
+// Drain (returns removed entries and clears them)
+let drained_ctx = drain_context("my_app", "server")?;  // Vec<(String, Uuid)>
+let drained_ctxs = drain_all_contexts("my_app")?;  // Vec<(String, String, Uuid)>
+let drained_ns = drain_namespace("my_app")?;  // Vec<(String, String, Uuid)>
+let drained_all = drain_all_namespaces()?;  // Vec<(String, String, Uuid)>
 ```
 
 ## API
 
+### Namespace Management
+
 | Function | Description |
-|----------|-------------|
-| `reserve(context)` | Generate and register a new UUID in the given context |
-| `reserve_with_base(context, base)` | Reserve with custom base parameter |
-| `reserve_with(context, base, max_retries)` | Reserve with custom base and retry count |
-| `add(context, uuid)` | Register an existing UUID in a context |
-| `remove(context, uuid)` | Remove a UUID from a context (returns `Result`) |
-| `try_remove(context, uuid)` | Remove a UUID from a context (returns `bool`) |
-| `replace(context, old, new)` | Replace one UUID with another in a context |
-| `get(context)` | Get all UUIDs stored for a specific context |
-| `get_all()` | Get all UUIDs stored | 
-| `clear_context(context)` | Remove all UUIDS from a specific context |
-| `clear_all_contexts()` | Remove all UUIDs from all contexts |
-| `drain_context(context)` | Removes and returns all UUIDs from a specific context |
-| `drain_all_contexts()` | Removes and returns all UUIDs from all contexts |
+|---|---|
+| `reserve_namespace(ns)` | Pre-create a namespace entry |
+| `remove_namespace(ns)` | Remove a namespace and all its data |
+| `replace_namespace(old, new)` | Rename a namespace |
+
+### UUID Operations
+
+| Function | Description |
+|---|---|
+| `reserve_id(ns, ctx)` | Generate and register a new UUID |
+| `reserve_id_with_base(ns, ctx, base)` | Reserve with a custom base parameter |
+| `reserve_id_with(ns, ctx, base, retries)` | Reserve with custom base and retry limit |
+| `add_id(ns, ctx, uuid)` | Register an existing UUID |
+| `remove_id(ns, ctx, uuid)` | Remove a UUID (returns `Result`) |
+| `try_remove_id(ns, ctx, uuid)` | Remove a UUID (returns `bool`) |
+| `replace_id(ns, ctx, old, new)` | Replace one UUID with another in a context |
+
+### Query / Inspect
+
+| Function | Description |
+|---|---|
+| `get_pairs(ns, ctx)` | All UUIDs for a specific context |
+| `get_namespace_pairs(ns)` | All UUIDs across all contexts in a namespace |
+| `get_all_pairs()` | All UUIDs across all namespaces |
+| `list_namespaces()` | All registered namespace names |
+| `list_contexts(ns)` | All context names within a namespace |
+
+### Clear / Drain
+
+| Function | Description |
+|---|---|
+| `clear_context(ns, ctx)` | Drop all UUIDs from a context |
+| `clear_all()` | Drop everything from the registry |
+| `drain_context(ns, ctx)` | Remove and return all UUIDs from a context — `Vec<(String, Uuid)>` |
+| `drain_all_contexts(ns)` | Remove and return all contexts in a namespace — `Vec<(String, String, Uuid)>` |
+| `drain_namespace(ns)` | Remove and return an entire namespace — `Vec<(String, String, Uuid)>` |
+| `drain_all_namespaces()` | Remove and return all namespaces — `Vec<(String, String, Uuid)>` |
 
 ## License
 
