@@ -2,6 +2,8 @@
 
 A library for managing in-process, namespace- and context-aware UUIDs for liveness tracking. UUIDs are organized in a two-level global registry (`namespace -> context -> UUID set`), making it straightforward to track running components across logical scopes in dynamic systems.
 
+The underlying registry data structure is a mutable global state using a singleton pattern, thus it is necessitated that the developer implements proper management and implementation practices for their particular process/use-case.
+
 ## Installation
 
 Add to your `Cargo.toml`:
