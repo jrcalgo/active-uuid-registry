@@ -455,16 +455,20 @@ pub(crate) fn clear_context(namespace: &str, context: &str) {
     }
 }
 
-pub(crate) fn clear_all_contexts() {
+pub(crate) fn clear_all_contexts(namespace: &str) {
     match global_pool() {
         #[cfg(not(feature = "concurrent-map"))]
         GlobalUuidPool::SingleThreaded(pool) => {
             let mut map = pool.lock();
-            map.clear();
+            if let Some(ct_map) = map.get_mut(namespace) {
+                ct_map.clear();
+            }
         }
         #[cfg(feature = "concurrent-map")]
         GlobalUuidPool::Concurrent(pool) => {
-            pool.clear();
+            if let Some(nm_ref) = pool.get(namespace) {
+                nm_ref.value().clear();
+            }
         }
     }
 }

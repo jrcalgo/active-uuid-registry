@@ -219,9 +219,12 @@ pub fn clear_context(namespace: &str, context: &str) {
 }
 
 /// Clears all namespaces, contexts, and associated UUIDs from memory.
+/// 
+/// #### Arguments
+/// * `namespace`: named namespace
 #[inline(always)]
-pub fn clear_all_contexts() {
-    crate::registry::clear_all_contexts()
+pub fn clear_all_contexts(namespace: &str) {
+    crate::registry::clear_all_contexts(namespace)
 }
 
 /// Clears and returns all contexts within a namespace and all associated UUIDs from memory.
