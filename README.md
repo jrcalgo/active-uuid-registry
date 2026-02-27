@@ -8,7 +8,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-active-uuid-registry = "0.5.1"
+active-uuid-registry = "0.6.0"
 ```
 
 By default, the registry uses a mutex-protected `HashMap` with `Arc<str>` keys and `HashSet<Uuid>` values.
@@ -16,7 +16,7 @@ For high-concurrency workloads, enable the `concurrent-map` feature to use `Dash
 
 ```toml
 [dependencies]
-active-uuid-registry = { version = "0.5.1", features = ["concurrent-map"] }
+active-uuid-registry = { version = "0.6.0", features = ["concurrent-map"] }
 ```
 
 ## Usage
@@ -56,7 +56,7 @@ let contexts = list_contexts("my_app");
 clear_context("my_app", "server");
 clear_namespace("my_app");
 clear_all_namespaces();
-clear_all_contexts();
+clear_all_contexts("my_app");
 
 // Drain (returns removed entries and clears them)
 let drained_ctx = drain_context("my_app", "server")?;  // Vec<(String, Uuid)>
@@ -102,9 +102,9 @@ let drained_all = drain_all_namespaces()?;  // Vec<(String, String, Uuid)>
 | Function | Description |
 |---|---|
 | `clear_context(ns, ctx)` | Drop all UUIDs from a context |
-| `clear_namespace(ns)` | Drop all UUIDs and contexts from a namespace |
+| `clear_namespace(ns)` | Remove a namespace and all its contexts from the registry |
 | `clear_all_namespaces()` | Drop everything from the registry |
-| `clear_all_contexts()` | Drop everything from the registry |
+| `clear_all_contexts(ns)` | Drop all contexts within a namespace, retaining the namespace entry |
 | `drain_context(ns, ctx)` | Remove and return all UUIDs from a context — `Vec<(String, Uuid)>` |
 | `drain_all_contexts(ns)` | Remove and return all contexts in a namespace — `Vec<(String, String, Uuid)>` |
 | `drain_namespace(ns)` | Remove and return an entire namespace — `Vec<(String, String, Uuid)>` |

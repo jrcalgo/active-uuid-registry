@@ -2,17 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.5.1] - 2026-02-27
+## [0.6.0] - 2026-02-27
 
 ### Added
-- **Namespace Clear** — `clear_namespace(ns)` for non-returning removal of all contexts and UUIDs within a namespace
-- **Clear All Namespaces** — `clear_all_namespaces()` for non-returning clear of the entire registry
-
-### Changed
-- **`clear_all_contexts()` Restored** — `clear_all_contexts()` is re-added to the public interface as an alias for `clear_all_namespaces()`; both clear the entire registry
+- **Namespace Clear** — `clear_namespace(ns)` removes a namespace and all its contexts entirely from the registry
+- **Clear All Namespaces** — `clear_all_namespaces()` drops the entire registry (non-returning)
+- **Clear All Contexts** — `clear_all_contexts(ns)` drops all contexts within a namespace while retaining the namespace entry (non-returning)
 
 ### Breaking
-- `clear_all()` removed from public interface; replace usages with `clear_all_namespaces()` or `clear_all_contexts()`
+- `clear_all()` removed from public interface; use `clear_all_namespaces()` for equivalent global behavior, or `clear_all_contexts(ns)` for namespace-scoped clearing
 
 ---
 
