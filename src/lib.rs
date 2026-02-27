@@ -2,9 +2,7 @@ pub mod interface;
 
 mod registry;
 
-pub mod registry_uuid {
-    pub use uuid::*;
-}
+pub use uuid as registry_uuid;
 
 /// UUID generation code with thread-safe pool management.
 ///
