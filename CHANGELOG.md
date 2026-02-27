@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-02-27
+
+### Added
+- **Namespace Clear** — `clear_namespace(ns)` for non-returning removal of all contexts and UUIDs within a namespace
+- **Clear All Namespaces** — `clear_all_namespaces()` for non-returning clear of the entire registry
+
+### Changed
+- **`clear_all_contexts()` Restored** — `clear_all_contexts()` is re-added to the public interface as an alias for `clear_all_namespaces()`; both clear the entire registry
+
+### Breaking
+- `clear_all()` removed from public interface; replace usages with `clear_all_namespaces()` or `clear_all_contexts()`
+
+---
+
 ## [0.5.0] - 2026-02-19
 
 ### Added
@@ -22,6 +36,8 @@ All notable changes to this project will be documented in this file.
 - `clear_all_contexts()` renamed to `clear_all()` in public interface
 - `drain_all_contexts()` return type changed from `Result<Vec<(String, Uuid)>, UuidPoolError>` to `Result<Vec<(String, String, Uuid)>, UuidPoolError>`
 - `list_contexts()` now requires a `namespace: &str` argument
+
+---
 
 ## [0.4.0] - 2026-02-12
 
