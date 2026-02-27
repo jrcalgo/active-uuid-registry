@@ -409,6 +409,34 @@ pub(crate) fn list_contexts(namespace: &str) -> Vec<String> {
     }
 }
 
+pub(crate) fn clear_namespace(namespace: &str) {
+    match global_pool() {
+        #[cfg(not(feature = "concurrent-map"))]
+        GlobalUuidPool::SingleThreaded(pool) => {
+            let mut map = pool.lock();
+            map.remove(namespace);
+        }
+        #[cfg(feature = "concurrent-map")]
+        GlobalUuidPool::Concurrent(pool) => {
+            pool.remove(namespace);
+        }
+    }
+}
+
+pub(crate) fn clear_all_namespaces() {
+    match global_pool() {
+        #[cfg(not(feature = "concurrent-map"))]
+        GlobalUuidPool::SingleThreaded(pool) => {
+            let mut map = pool.lock();
+            map.clear();
+        }
+        #[cfg(feature = "concurrent-map")]
+        GlobalUuidPool::Concurrent(pool) => {
+            pool.clear();
+        }
+    }
+}
+
 pub(crate) fn clear_context(namespace: &str, context: &str) {
     match global_pool() {
         #[cfg(not(feature = "concurrent-map"))]

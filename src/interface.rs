@@ -193,6 +193,21 @@ pub fn list_contexts(namespace: &str) -> Vec<String> {
     crate::registry::list_contexts(namespace)
 }
 
+/// Clears  all contexts within a namespace and all associated UUIDs from memory.
+/// 
+/// #### Arguments
+/// * `namespace`: named namespace
+#[inline(always)]
+pub fn clear_namespace(namespace: &str) {
+    crate::registry::clear_namespace(namespace)
+}
+
+/// Clears all namespaces and all associated UUIDs from memory.
+#[inline(always)]
+pub fn clear_all_namespaces() {
+    crate::registry::clear_all_namespaces()
+}
+
 /// Clears the given context and all associated UUIDs from the given namespace.
 ///
 /// #### Arguments
@@ -205,7 +220,7 @@ pub fn clear_context(namespace: &str, context: &str) {
 
 /// Clears all namespaces, contexts, and associated UUIDs from memory.
 #[inline(always)]
-pub fn clear_all() {
+pub fn clear_all_contexts() {
     crate::registry::clear_all_contexts()
 }
 
