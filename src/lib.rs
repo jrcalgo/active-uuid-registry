@@ -7,7 +7,7 @@ pub use uuid as registry_uuid;
 /// UUID generation code with thread-safe pool management.
 ///
 /// This module provides functions for generating unique UUIDs and tracking them in a thread-safe pool.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq, Hash)]
 pub enum UuidPoolError {
     #[error("Failed to generate unique UUID: {0}")]
     FailedToGenerateUniqueUuidError(String),
