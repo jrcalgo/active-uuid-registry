@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-02-28
+
+### Added
+- **`list_ids`** — `list_ids(ns, ctx)` returns `Vec<Uuid>` of all raw UUIDs within a context
+- **`NamespaceString`, `ContextString` types** - String wrappers for easier data identification
+
+### Changed
+- **Getter renames** — `get_pairs` → `get_context_entries`, `get_namespace_pairs` → `get_namespace_entries`, `get_all_pairs` → `get_all_namespace_entries`
+- **Getter return types** — all three getter functions now return `Vec<(NamespaceString, ContextString, Uuid)>` (was `Vec<(String, Uuid)>`)
+- **`list_namespaces` return type** — now returns `Vec<NamespaceString>` (was `Vec<String>`)
+- **`list_contexts` return type** — now returns `Vec<ContextString>` (was `Vec<String>`)
+
+### Breaking
+- `get_pairs`, `get_namespace_pairs`, `get_all_pairs` removed; use the renamed equivalents above
+
+---
+
 ## [0.6.1] - 2026-02-28
 
 ### Changed

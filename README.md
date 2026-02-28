@@ -10,7 +10,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-active-uuid-registry = "0.6.1"
+active-uuid-registry = "0.7.0"
 ```
 
 By default, the registry uses a mutex-protected `HashMap` with `Arc<str>` keys and `HashSet<Uuid>` values.
@@ -18,7 +18,7 @@ For high-concurrency workloads, enable the `concurrent-map` feature to use `Dash
 
 ```toml
 [dependencies]
-active-uuid-registry = { version = "0.6.1", features = ["concurrent-map"] }
+active-uuid-registry = { version = "0.7.0", features = ["concurrent-map"] }
 ```
 
 ## Usage
@@ -46,9 +46,10 @@ let removed: bool = try_remove_id("my_app", "client", some_uuid);
 replace_id("my_app", "server", old_uuid, new_uuid)?;
 
 // Query UUIDs
-let pairs = get_pairs("my_app", "server")?;  // Vec<(String, Uuid)>
-let ns_pairs = get_namespace_pairs("my_app")?;  // all contexts in namespace
-let all_pairs = get_all_pairs()?;  // all namespaces
+let ctx_entries = get_context_entries("my_app", "server")?;  // Vec<(NamespaceString, ContextString, Uuid)>
+let ns_entries = get_namespace_entries("my_app")?;            // all contexts in namespace
+let all_entries = get_all_namespace_entries()?;               // all namespaces
+let ids = list_ids("my_app", "server");                       // Vec<Uuid>
 
 // List registered namespaces and contexts
 let namespaces = list_namespaces();
@@ -74,10 +75,10 @@ let drained_all = drain_all_namespaces()?;  // Vec<(String, String, Uuid)>
 | Function | Description |
 |---|---|
 | `reserve_namespace(ns)` | Pre-create a namespace entry |
-| `remove_namespace(ns)` | Remove a namespace and all its data |
+| `remove_namespace(ns)` | Remove a namespace and all of its data |
 | `replace_namespace(old, new)` | Rename a namespace |
 
-### UUID Operations
+### Context-UUID Operations
 
 | Function | Description |
 |---|---|
@@ -93,11 +94,12 @@ let drained_all = drain_all_namespaces()?;  // Vec<(String, String, Uuid)>
 
 | Function | Description |
 |---|---|
-| `get_pairs(ns, ctx)` | All UUIDs for a specific context |
-| `get_namespace_pairs(ns)` | All UUIDs across all contexts in a namespace |
-| `get_all_pairs()` | All UUIDs across all namespaces |
+| `get_context_entries(ns, ctx)` | All UUIDs for a specific context in a namespace |
+| `get_namespace_entries(ns)` | All UUIDs across all contexts in a namespace |
+| `get_all_namespace_entries()` | All UUIDs across all contexts across all namespaces |
 | `list_namespaces()` | All registered namespace names |
 | `list_contexts(ns)` | All context names within a namespace |
+| `list_ids(ns, ctx)` | All UUIDs within a context in a namespace |
 
 ### Clear / Drain
 
@@ -107,10 +109,10 @@ let drained_all = drain_all_namespaces()?;  // Vec<(String, String, Uuid)>
 | `clear_namespace(ns)` | Remove a namespace and all its contexts from the registry |
 | `clear_all_namespaces()` | Drop everything from the registry |
 | `clear_all_contexts(ns)` | Drop all contexts within a namespace, retaining the namespace entry |
-| `drain_context(ns, ctx)` | Remove and return all UUIDs from a context — `Vec<(String, Uuid)>` |
-| `drain_all_contexts(ns)` | Remove and return all contexts in a namespace — `Vec<(String, String, Uuid)>` |
-| `drain_namespace(ns)` | Remove and return an entire namespace — `Vec<(String, String, Uuid)>` |
-| `drain_all_namespaces()` | Remove and return all namespaces — `Vec<(String, String, Uuid)>` |
+| `drain_context(ns, ctx)` | Remove and return all UUIDs from a context |
+| `drain_all_contexts(ns)` | Remove and return all contexts in a namespace |
+| `drain_namespace(ns)` | Remove and return an entire namespace |
+| `drain_all_namespaces()` | Remove and return all namespaces |
 
 ## License
 
