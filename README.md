@@ -10,7 +10,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-active-uuid-registry = "0.6.0"
+active-uuid-registry = "0.6.1"
 ```
 
 By default, the registry uses a mutex-protected `HashMap` with `Arc<str>` keys and `HashSet<Uuid>` values.
@@ -18,7 +18,7 @@ For high-concurrency workloads, enable the `concurrent-map` feature to use `Dash
 
 ```toml
 [dependencies]
-active-uuid-registry = { version = "0.6.0", features = ["concurrent-map"] }
+active-uuid-registry = { version = "0.6.1", features = ["concurrent-map"] }
 ```
 
 ## Usage

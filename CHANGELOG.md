@@ -2,12 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1] - 2026-02-28
+
+### Changed
+- **`UuidPoolError` Derives** — `UuidPoolError` now derives `Clone`, `PartialEq`, `Eq`, and `Hash`, making it usable in collections and comparable contexts
+
+---
+
 ## [0.6.0] - 2026-02-27
 
 ### Added
 - **Namespace Clear** — `clear_namespace(ns)` removes a namespace and all its contexts entirely from the registry
 - **Clear All Namespaces** — `clear_all_namespaces()` drops the entire registry (non-returning)
 - **Clear All Contexts** — `clear_all_contexts(ns)` drops all contexts within a namespace while retaining the namespace entry (non-returning)
+
+### Changed
+- **`registry_uuid` Re-export** — simplified from `pub mod registry_uuid { pub use uuid::*; }` to `pub use uuid as registry_uuid` for a more idiomatic crate-level re-export
 
 ### Breaking
 - `clear_all()` removed from public interface; use `clear_all_namespaces()` for equivalent global behavior, or `clear_all_contexts(ns)` for namespace-scoped clearing
