@@ -1,4 +1,4 @@
-use super::UuidPoolError;
+use super::{UuidPoolError, NamespaceString, ContextString};
 
 use uuid::Uuid;
 
@@ -139,38 +139,39 @@ pub fn replace_id(
     crate::registry::replace_uuid_in_pool(namespace, context, &old_uuid, &new_uuid)
 }
 
-/// Gets all UUIDs for the given namespace and context space.
+/// Gets all context-UUID entries from a specific context space in a given namespace.
 ///
 /// #### Arguments
 /// * `namespace`: named namespace
 /// * `context`: named context space
 /// #### Returns
-/// * `Result<Vec<(String, Uuid)>, UuidPoolError>`: all context-associated UUID pairs
+/// * `Result<Vec<(NamespaceString, ContextString, Uuid)>, UuidPoolError>`: all context-associated UUID entries
 #[inline(always)]
-pub fn get_pairs(namespace: &str, context: &str) -> Result<Vec<(String, Uuid)>, UuidPoolError> {
-    crate::registry::get_context_uuids_from_pool(namespace, context)
+pub fn get_context_entries(namespace: &str, context: &str) -> Result<Vec<(NamespaceString, ContextString, Uuid)>, UuidPoolError> {
+    crate::registry::get_context_entries(namespace, context)
 }
 
-/// Gets all UUIDs for all contexts within the given namespace.
+/// Gets all context-UUID entries from all context spaces for a given namespace.
 ///
 /// #### Arguments
 /// * `namespace`: named namespace
 /// #### Returns
-/// * `Result<Vec<(String, Uuid)>, UuidPoolError>`: all context-UUID pairs in the namespace
+/// * `Result<Vec<(NamespaceString, ContextString, Uuid)>, UuidPoolError>`: all context-UUID entries in the namespace
 #[inline(always)]
-pub fn get_namespace_pairs(
+pub fn get_namespace_entries(
     namespace: &str,
-) -> Result<Vec<(String, Uuid)>, UuidPoolError> {
-    crate::registry::get_all_contexts_uuids_from_namespace(namespace)
+) -> Result<Vec<(NamespaceString, ContextString, Uuid)>, UuidPoolError> {
+    crate::registry::get_namespace_entries(namespace)
 }
 
-/// Gets all UUIDs across all namespaces and context spaces.
-///
+
+/// Gets all context-UUID entries in all namespaces and all context spaces.
+/// 
 /// #### Returns
-/// * `Result<Vec<(String, Uuid)>, UuidPoolError>`: all context-UUID pairs
+/// * `Result<Vec<(NamespaceString, ContextString, Uuid)>, UuidPoolError>`: all context-UUID entries in all namespaces and all context spaces
 #[inline(always)]
-pub fn get_all_pairs() -> Result<Vec<(String, Uuid)>, UuidPoolError> {
-    crate::registry::get_all_contexts_uuids_from_pool()
+pub fn get_all_namespace_entries() -> Result<Vec<(NamespaceString, ContextString, Uuid)>, UuidPoolError> {
+    crate::registry::get_all_namespace_entries()
 }
 
 /// Gets all namespaces currently registered in the pool.
@@ -178,7 +179,7 @@ pub fn get_all_pairs() -> Result<Vec<(String, Uuid)>, UuidPoolError> {
 /// #### Returns
 /// * `Vec<String>`: all namespace names
 #[inline(always)]
-pub fn list_namespaces() -> Vec<String> {
+pub fn list_namespaces() -> Vec<NamespaceString> {
     crate::registry::list_namespaces()
 }
 
@@ -189,8 +190,20 @@ pub fn list_namespaces() -> Vec<String> {
 /// #### Returns
 /// * `Vec<String>`: all context names
 #[inline(always)]
-pub fn list_contexts(namespace: &str) -> Vec<String> {
+pub fn list_contexts(namespace: &str) -> Vec<ContextString> {
     crate::registry::list_contexts(namespace)
+}
+
+/// Gets all UUIDs currently registered within the given namespace and context space.
+///
+/// #### Arguments
+/// * `namespace`: named namespace
+/// * `context`: named context space
+/// #### Returns
+/// * `Vec<Uuid>`: all UUIDs
+#[inline(always)]
+pub fn list_ids(namespace: &str, context: &str) -> Vec<Uuid> {
+    crate::registry::list_ids(namespace, context)
 }
 
 /// Clears  all contexts within a namespace and all associated UUIDs from memory.

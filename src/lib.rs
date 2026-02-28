@@ -4,6 +4,9 @@ mod registry;
 
 pub use uuid as registry_uuid;
 
+pub type NamespaceString = String;
+pub type ContextString = String;
+
 /// UUID generation code with thread-safe pool management.
 ///
 /// This module provides functions for generating unique UUIDs and tracking them in a thread-safe pool.

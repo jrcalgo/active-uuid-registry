@@ -1,4 +1,4 @@
-use super::UuidPoolError;
+use super::{UuidPoolError, NamespaceString, ContextString};
 
 use std::sync::{Arc, OnceLock};
 use uuid::Uuid;
@@ -264,10 +264,10 @@ pub(crate) fn replace_uuid_in_pool(
     Ok(())
 }
 
-pub(crate) fn get_context_uuids_from_pool(
+pub(crate) fn get_context_entries(
     namespace: &str,
     context: &str,
-) -> Result<Vec<(String, Uuid)>, UuidPoolError> {
+) -> Result<Vec<(NamespaceString, ContextString, Uuid)>, UuidPoolError> {
     match global_pool() {
         #[cfg(not(feature = "concurrent-map"))]
         GlobalUuidPool::SingleThreaded(pool) => {
@@ -275,7 +275,7 @@ pub(crate) fn get_context_uuids_from_pool(
             nm_map
                 .get(namespace)
                 .and_then(|ct_map| ct_map.get(context))
-                .map(|set| set.iter().map(|uuid| (context.to_string(), *uuid)).collect())
+                .map(|set| set.iter().map(|uuid| (namespace.to_string(), context.to_string(), *uuid)).collect())
                 .ok_or(UuidPoolError::FailedToFindUuidInPoolError(format!(
                     "Failed to find UUIDs in pool for namespace-context '{}':'{}'",
                     namespace, context
@@ -289,7 +289,7 @@ pub(crate) fn get_context_uuids_from_pool(
                     set_ref
                         .value()
                         .iter()
-                        .map(|uuid| (context.to_string(), *uuid))
+                        .map(|uuid| (namespace.to_string(), context.to_string(), *uuid))
                         .collect()
                 })
             })
@@ -300,9 +300,9 @@ pub(crate) fn get_context_uuids_from_pool(
     }
 }
 
-pub(crate) fn get_all_contexts_uuids_from_namespace(
+pub(crate) fn get_namespace_entries(
     namespace: &str,
-) -> Result<Vec<(String, Uuid)>, UuidPoolError> {
+) -> Result<Vec<(NamespaceString, ContextString, Uuid)>, UuidPoolError> {
     match global_pool() {
         #[cfg(not(feature = "concurrent-map"))]
         GlobalUuidPool::SingleThreaded(pool) => {
@@ -313,7 +313,7 @@ pub(crate) fn get_all_contexts_uuids_from_namespace(
                     ct_map
                         .iter()
                         .flat_map(|(ctx, ids)| {
-                            ids.iter().map(move |id| (ctx.to_string(), *id))
+                            ids.iter().map(move |id| (namespace.to_string(), ctx.to_string(), *id))
                         })
                         .collect()
                 })
@@ -334,7 +334,7 @@ pub(crate) fn get_all_contexts_uuids_from_namespace(
             for ct_entry in nm_ref.value().iter() {
                 let ctx = ct_entry.key().to_string();
                 for uuid in ct_entry.value().iter() {
-                    pairs.push((ctx.clone(), *uuid));
+                    pairs.push((namespace.to_string(), ctx.clone(), *uuid));
                 }
             }
             Ok(pairs)
@@ -342,17 +342,19 @@ pub(crate) fn get_all_contexts_uuids_from_namespace(
     }
 }
 
-pub(crate) fn get_all_contexts_uuids_from_pool() -> Result<Vec<(String, Uuid)>, UuidPoolError> {
+pub(crate) fn get_all_namespace_entries() -> Result<Vec<(NamespaceString, ContextString, Uuid)>, UuidPoolError> {
     match global_pool() {
         #[cfg(not(feature = "concurrent-map"))]
         GlobalUuidPool::SingleThreaded(pool) => {
             let pool_guard = pool.lock();
             Ok(pool_guard
                 .iter()
-                .flat_map(|(_, ct_map)| {
+                .flat_map(move |(nm, ct_map)| {
                     ct_map
                         .iter()
-                        .flat_map(|(ctx, ids)| ids.iter().map(move |id| (ctx.to_string(), *id)))
+                        .flat_map(|(ctx, ids)| ids.iter().map( {
+                            let namespace = nm.to_string();
+                            move |id| (namespace.clone(), ctx.to_string(), *id)}))
                 })
                 .collect())
         }
@@ -360,10 +362,11 @@ pub(crate) fn get_all_contexts_uuids_from_pool() -> Result<Vec<(String, Uuid)>, 
         GlobalUuidPool::Concurrent(pool) => {
             let mut pairs = Vec::new();
             for nm_entry in pool.iter() {
+                let namespace = nm_entry.key().to_string();
                 for ct_entry in nm_entry.value().iter() {
                     let ctx = ct_entry.key().to_string();
                     for uuid in ct_entry.value().iter() {
-                        pairs.push((ctx.clone(), *uuid));
+                        pairs.push((namespace.clone(), ctx.clone(), *uuid));
                     }
                 }
             }
@@ -407,6 +410,31 @@ pub(crate) fn list_contexts(namespace: &str) -> Vec<String> {
             })
             .unwrap_or_default(),
     }
+}
+
+pub(crate) fn list_ids(namespaces: &str, contexts: &str) -> Vec<Uuid> {
+    match global_pool() {
+        #[cfg(not(feature = "concurrent-map"))]
+        GlobalUuidPool::SingleThreaded(pool) => {
+            let map = pool.lock();
+            map.get(namespaces)
+                .and_then(|ct_map| ct_map.get(contexts))
+                .map(|set| set.iter().cloned().collect())
+                .unwrap_or_default()
+        }
+        #[cfg(feature = "concurrent-map")]
+        GlobalUuidPool::Concurrent(pool) => {
+            if let Some(nm_ref) = pool.get(namespaces) {
+                if let Some(ctx_ref) = nm_ref.value().get(contexts) {
+                    ctx_ref.value().iter().map(|r| *r).collect()
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            }
+        }
+    }   
 }
 
 pub(crate) fn clear_namespace(namespace: &str) {
