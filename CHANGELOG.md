@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1] - 2026-03-07
+
+### Added
+- **`get_random_uuid_with_base(base)`** — Returns a new UUID generated with the given base (v8-style, same as reservation). Does not register the UUID in the registry; useful for generating standalone UUIDs with a consistent base.
+
+### Changed
+- **Dependencies** — `uuid` updated from 1.21.0 to 1.22.0
+- **Crate documentation** — Added module-level docs in `lib.rs` describing the library, two-level namespace→context registry, feature flags (default vs `concurrent-map`), and usage responsibility
+
+---
+
 ## [0.7.0] - 2026-02-28
 
 ### Added
