@@ -35,6 +35,7 @@ enum GlobalUuidPool {
 // Thread-safe UUID pool using Mutex
 static GLOBAL_UUID_POOL: OnceLock<GlobalUuidPool> = OnceLock::new();
 
+/// Acquires the global UUID pool instance using a lazy initialization pattern.
 fn global_pool() -> &'static GlobalUuidPool {
     GLOBAL_UUID_POOL.get_or_init(|| {
         #[cfg(not(feature = "concurrent-map"))]
@@ -48,7 +49,8 @@ fn global_pool() -> &'static GlobalUuidPool {
     })
 }
 
-fn make_uuid_with_base(base: u32) -> Uuid {
+/// Generates a new UUID with a custom base.
+pub(crate) fn make_uuid_with_base(base: u32) -> Uuid {
     let mut bytes = [0u8; 16];
     bytes[0..4].copy_from_slice(&base.to_be_bytes());
     for i in bytes.iter_mut().skip(4) {
