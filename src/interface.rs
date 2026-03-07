@@ -193,7 +193,7 @@ pub fn replace_id(
 #[doc(alias = "getter")]
 #[doc(alias = "id")]
 #[inline(always)]
-pub fn make_uuid_with_base(base: u32) -> Uuid {
+pub fn get_random_uuid_with_base(base: u32) -> Uuid {
     crate::registry::make_uuid_with_base(base)
 }
 
