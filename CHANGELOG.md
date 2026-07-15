@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-07-15
+
+### Added
+- **Owned namespaces** — `reserve_owned_namespace(ns)` claims a namespace and returns a cloneable `OwnedNamespace` capability handle. Only that handle (and its clones) can write to the namespace afterward; claiming fails if the namespace is already owned or already contains data.
+- **`OwnedNamespace`** — cloneable RAII handle with `reserve_id*`, `add_id`, `remove_id`, `replace_id`, `clear_context`, `clear_all_contexts`, `drain_context`, `drain_all_contexts`, `rename`, and `remove` methods. Renaming is observed by every clone; dropping the last clone (or calling `.remove()`) removes the namespace, its data, and its ownership record.
+- **`UuidPoolError::FailedToClaimNamespaceError`** — returned when a namespace cannot be claimed as owned (already owned, or already contains data).
+- **`try_reserve_namespace`, `try_remove_namespace`, `try_replace_namespace`, `try_clear_namespace`, `try_clear_context`, `try_clear_all_contexts`** — `Result`-returning counterparts to the existing `()`-returning namespace/clear functions, so callers can observe an `UnauthorizedNamespaceWriteAccessError` when the target namespace is owned.
+
+### Changed
+- **Write authorization is now enforced** — free functions in `interface` that write to a namespace owned by an `OwnedNamespace` handle are rejected (`Result`-returning functions return `UnauthorizedNamespaceWriteAccessError`; `()`/`bool`-returning functions silently no-op/return `false`). Unowned namespaces behave exactly as before.
+- **`clear_all_namespaces` / `drain_all_namespaces`** — now only affect *unowned* namespaces; owned namespaces are always preserved.
+- **`replace_id` / `OwnedNamespace::replace_id`** — the UUID swap is now a single authorized critical section, so a failed replacement (destination UUID already present) restores the original UUID instead of losing it.
+
+---
+
 ## [0.7.1] - 2026-03-07
 
 ### Added
