@@ -24,6 +24,12 @@ mod registry;
 /// Interface API module for the Active UUID Registry.
 pub mod interface;
 
+mod raii;
+
+/// A cloneable, opaque write-authorization capability for a namespace claimed via
+/// [`interface::reserve_owned_namespace`].
+pub use raii::OwnedNamespace;
+
 #[doc(inline)]
 pub use uuid as registry_uuid;  
 
@@ -48,4 +54,8 @@ pub enum UuidPoolError {
     FailedToRemoveUuidFromPoolError(String),
     #[error("Failed to replace UUID in pool: {0}")]
     FailedToReplaceUuidInPoolError(String),
+    #[error("Unauthorized write access to namespace '{0}'")]
+    UnauthorizedNamespaceWriteAccessError(String),
+    #[error("Failed to claim owned namespace: {0}")]
+    FailedToClaimNamespaceError(String),
 }

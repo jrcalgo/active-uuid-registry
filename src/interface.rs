@@ -6,8 +6,21 @@
 //! This means that data may be written to the registry while you are working with it, and you may not see the changes you made until you retrieve/alter the data again via another function call.
 //! 
 //! This race condition is *not* present in the **default / single-threaded** mode due to the mutex lock protection. Use **concurrent-map** with caution.
+//!
+//! ## Owned namespaces
+//!
+//! A namespace can optionally be *claimed* via [`reserve_owned_namespace`], which returns a
+//! cloneable [`crate::OwnedNamespace`] capability handle. Once claimed, the free functions in
+//! this module (`add_id`, `remove_id`, `clear_namespace`, etc.) can no longer write to that
+//! namespace. Only the [`crate::OwnedNamespace`] handle (and its clones) can write to it. 
+//! Namespaces that are never claimed are globally accessible: open to any caller.
+//!
+//! [`clear_all_namespaces`] and [`drain_all_namespaces`] only ever affect unowned namespaces;
+//! owned namespaces are always preserved by these bulk operations.
 
 use super::{UuidPoolError, NamespaceString, ContextString};
+use crate::registry::WriteAccess;
+use crate::OwnedNamespace;
 use uuid::Uuid;
 
 /// The default base for UUID generation.
@@ -19,6 +32,9 @@ pub const DEFAULT_UUID_BASE: u32 = 64;
 pub const DEFAULT_MAX_RETRIES: usize = 64;
 
 /// Adds a new namespace to the registry.
+///
+/// No-ops if the namespace is already owned by an [`OwnedNamespace`] handle. Use
+/// [`try_reserve_namespace`] to observe that failure.
 /// 
 /// #### Arguments
 /// * `namespace`: named namespace
@@ -27,10 +43,47 @@ pub const DEFAULT_MAX_RETRIES: usize = 64;
 #[doc(alias = "namespace")]
 #[inline(always)]
 pub fn reserve_namespace(namespace: &str) {
-    crate::registry::add_namespace(namespace)
+    let _ = crate::registry::add_namespace(namespace, WriteAccess::Unowned);
+}
+
+/// Adds a new namespace to the registry, reporting whether it was authorized.
+///
+/// #### Arguments
+/// * `namespace`: named namespace
+/// #### Returns
+/// * `Result<(), UuidPoolError>`: success, or an error if the namespace is owned by an [`OwnedNamespace`] handle
+#[doc(alias = "setter")]
+#[doc(alias = "reservation")]
+#[doc(alias = "namespace")]
+#[inline(always)]
+pub fn try_reserve_namespace(namespace: &str) -> Result<(), UuidPoolError> {
+    crate::registry::add_namespace(namespace, WriteAccess::Unowned)
+}
+
+/// Claims a namespace as owned, returning a cloneable capability handle that is the only
+/// way to write to it going forward.
+///
+/// Fails if the namespace is already owned, or if it already contains data (only an absent
+/// or empty namespace may be claimed).
+///
+/// #### Arguments
+/// * `namespace`: named namespace
+/// #### Returns
+/// * `Result<OwnedNamespace, UuidPoolError>`: the ownership capability handle
+#[doc(alias = "setter")]
+#[doc(alias = "reservation")]
+#[doc(alias = "namespace")]
+#[inline(always)]
+pub fn reserve_owned_namespace(namespace: &str) -> Result<OwnedNamespace, UuidPoolError> {
+    let signature = crate::registry::add_owned_namespace(namespace)?;
+    Ok(OwnedNamespace::new(namespace.to_string(), signature))
 }
 
 /// Removes a namespace and all associated contexts from the registry.
+///
+/// No-ops if the namespace is owned by an [`OwnedNamespace`] handle. Use
+/// [`try_remove_namespace`] to observe that failure, or [`OwnedNamespace::remove`] to remove
+/// an owned namespace.
 /// 
 /// #### Arguments
 /// * `namespace`: named namespace
@@ -39,10 +92,28 @@ pub fn reserve_namespace(namespace: &str) {
 #[doc(alias = "namespace")]
 #[inline(always)]
 pub fn remove_namespace(namespace: &str) {
-    crate::registry::remove_namespace(namespace)
+    let _ = crate::registry::remove_namespace(namespace, WriteAccess::Unowned);
+}
+
+/// Removes a namespace and all associated contexts from the registry, reporting whether it was authorized.
+///
+/// #### Arguments
+/// * `namespace`: named namespace
+/// #### Returns
+/// * `Result<(), UuidPoolError>`: success, or an error if the namespace is owned by an [`OwnedNamespace`] handle
+#[doc(alias = "setter")]
+#[doc(alias = "remover")]
+#[doc(alias = "namespace")]
+#[inline(always)]
+pub fn try_remove_namespace(namespace: &str) -> Result<(), UuidPoolError> {
+    crate::registry::remove_namespace(namespace, WriteAccess::Unowned)
 }
 
 /// Replaces a namespace with a new namespace in the registry.
+///
+/// No-ops if `old_namespace` is owned by an [`OwnedNamespace`] handle. Use
+/// [`try_replace_namespace`] to observe that failure, or [`OwnedNamespace::rename`] to rename
+/// an owned namespace.
 /// 
 /// #### Arguments
 /// * `old_namespace`: old namespace
@@ -52,7 +123,22 @@ pub fn remove_namespace(namespace: &str) {
 #[doc(alias = "namespace")]
 #[inline(always)]
 pub fn replace_namespace(old_namespace: &str, new_namespace: &str) {
-    crate::registry::replace_namespace(old_namespace, new_namespace)
+    let _ = crate::registry::replace_namespace(old_namespace, new_namespace, WriteAccess::Unowned);
+}
+
+/// Replaces a namespace with a new namespace in the registry, reporting whether it was authorized.
+///
+/// #### Arguments
+/// * `old_namespace`: old namespace
+/// * `new_namespace`: new namespace
+/// #### Returns
+/// * `Result<(), UuidPoolError>`: success, or an error if `old_namespace` is owned by an [`OwnedNamespace`] handle, or `new_namespace` is owned/non-empty
+#[doc(alias = "setter")]
+#[doc(alias = "replacer")]
+#[doc(alias = "namespace")]
+#[inline(always)]
+pub fn try_replace_namespace(old_namespace: &str, new_namespace: &str) -> Result<(), UuidPoolError> {
+    crate::registry::replace_namespace(old_namespace, new_namespace, WriteAccess::Unowned)
 }
 
 /// Reserves a new UUID in the given namespace and context space.
@@ -109,7 +195,7 @@ pub fn reserve_id_with(
     base: u32,
     max_retries: usize,
 ) -> Result<Uuid, UuidPoolError> {
-    crate::registry::random_uuid(namespace, context, base, max_retries, 0)
+    crate::registry::random_uuid(namespace, context, base, max_retries, 0, WriteAccess::Unowned)
 }
 
 /// Adds an existing UUID to the given namespace and context space.
@@ -125,7 +211,7 @@ pub fn reserve_id_with(
 #[doc(alias = "id")]
 #[inline(always)]
 pub fn add_id(namespace: &str, context: &str, uuid: Uuid) -> Result<(), UuidPoolError> {
-    crate::registry::add_uuid_to_pool(namespace, context, &uuid)
+    crate::registry::add_uuid_to_pool(namespace, context, &uuid, WriteAccess::Unowned)
 }
 
 /// Removes an existing UUID from the given namespace and context space.
@@ -141,7 +227,7 @@ pub fn add_id(namespace: &str, context: &str, uuid: Uuid) -> Result<(), UuidPool
 #[doc(alias = "id")]
 #[inline(always)]
 pub fn remove_id(namespace: &str, context: &str, uuid: Uuid) -> Result<(), UuidPoolError> {
-    crate::registry::remove_uuid_from_pool(namespace, context, &uuid)
+    crate::registry::remove_uuid_from_pool(namespace, context, &uuid, WriteAccess::Unowned)
 }
 
 /// Tries to remove an existing UUID from the given namespace and context space.
@@ -157,7 +243,7 @@ pub fn remove_id(namespace: &str, context: &str, uuid: Uuid) -> Result<(), UuidP
 #[doc(alias = "id")]
 #[inline(always)]
 pub fn try_remove_id(namespace: &str, context: &str, uuid: Uuid) -> bool {
-    crate::registry::remove_uuid_from_pool(namespace, context, &uuid).is_ok()
+    crate::registry::remove_uuid_from_pool(namespace, context, &uuid, WriteAccess::Unowned).is_ok()
 }
 
 /// Replaces an existing UUID with a new UUID in the given namespace and context space.
@@ -179,7 +265,7 @@ pub fn replace_id(
     old_uuid: Uuid,
     new_uuid: Uuid,
 ) -> Result<(), UuidPoolError> {
-    crate::registry::replace_uuid_in_pool(namespace, context, &old_uuid, &new_uuid)
+    crate::registry::replace_uuid_in_pool(namespace, context, &old_uuid, &new_uuid, WriteAccess::Unowned)
 }
 
 /// Creates a random UUID given a base value.
@@ -278,6 +364,9 @@ pub fn list_ids(namespace: &str, context: &str) -> Vec<Uuid> {
 }
 
 /// Clears  all contexts within a namespace and all associated UUIDs from memory.
+///
+/// No-ops if the namespace is owned by an [`OwnedNamespace`] handle. Use
+/// [`try_clear_namespace`] to observe that failure.
 /// 
 /// #### Arguments
 /// * `namespace`: named namespace
@@ -285,10 +374,25 @@ pub fn list_ids(namespace: &str, context: &str) -> Vec<Uuid> {
 #[doc(alias = "namespace")]
 #[inline(always)]
 pub fn clear_namespace(namespace: &str) {
-    crate::registry::clear_namespace(namespace)
+    let _ = crate::registry::clear_namespace(namespace, WriteAccess::Unowned);
 }
 
-/// Clears all namespaces and all associated UUIDs from memory.
+/// Clears all contexts within a namespace and all associated UUIDs from memory, reporting whether it was authorized.
+///
+/// #### Arguments
+/// * `namespace`: named namespace
+/// #### Returns
+/// * `Result<(), UuidPoolError>`: success, or an error if the namespace is owned by an [`OwnedNamespace`] handle
+#[doc(alias = "clear")]
+#[doc(alias = "namespace")]
+#[inline(always)]
+pub fn try_clear_namespace(namespace: &str) -> Result<(), UuidPoolError> {
+    crate::registry::clear_namespace(namespace, WriteAccess::Unowned)
+}
+
+/// Clears all *unowned* namespaces and all associated UUIDs from memory.
+///
+/// Namespaces owned by an [`OwnedNamespace`] handle are always preserved.
 #[doc(alias = "clear")]
 #[doc(alias = "namespace")]
 #[inline(always)]
@@ -298,6 +402,9 @@ pub fn clear_all_namespaces() {
 
 /// Clears the given context and all associated UUIDs from the given namespace.
 ///
+/// No-ops if the namespace is owned by an [`OwnedNamespace`] handle. Use
+/// [`try_clear_context`] to observe that failure.
+///
 /// #### Arguments
 /// * `namespace`: named namespace
 /// * `context`: named context space
@@ -305,10 +412,27 @@ pub fn clear_all_namespaces() {
 #[doc(alias = "context")]
 #[inline(always)]
 pub fn clear_context(namespace: &str, context: &str) {
-    crate::registry::clear_context(namespace, context)
+    let _ = crate::registry::clear_context(namespace, context, WriteAccess::Unowned);
+}
+
+/// Clears the given context and all associated UUIDs from the given namespace, reporting whether it was authorized.
+///
+/// #### Arguments
+/// * `namespace`: named namespace
+/// * `context`: named context space
+/// #### Returns
+/// * `Result<(), UuidPoolError>`: success, or an error if the namespace is owned by an [`OwnedNamespace`] handle
+#[doc(alias = "clear")]
+#[doc(alias = "context")]
+#[inline(always)]
+pub fn try_clear_context(namespace: &str, context: &str) -> Result<(), UuidPoolError> {
+    crate::registry::clear_context(namespace, context, WriteAccess::Unowned)
 }
 
 /// Clears all namespaces, contexts, and associated UUIDs from memory.
+///
+/// No-ops if the namespace is owned by an [`OwnedNamespace`] handle. Use
+/// [`try_clear_all_contexts`] to observe that failure.
 /// 
 /// #### Arguments
 /// * `namespace`: named namespace
@@ -316,7 +440,20 @@ pub fn clear_context(namespace: &str, context: &str) {
 #[doc(alias = "context")]
 #[inline(always)]
 pub fn clear_all_contexts(namespace: &str) {
-    crate::registry::clear_all_contexts(namespace)
+    let _ = crate::registry::clear_all_contexts(namespace, WriteAccess::Unowned);
+}
+
+/// Clears all contexts and associated UUIDs within a namespace, reporting whether it was authorized.
+///
+/// #### Arguments
+/// * `namespace`: named namespace
+/// #### Returns
+/// * `Result<(), UuidPoolError>`: success, or an error if the namespace is owned by an [`OwnedNamespace`] handle
+#[doc(alias = "clear")]
+#[doc(alias = "context")]
+#[inline(always)]
+pub fn try_clear_all_contexts(namespace: &str) -> Result<(), UuidPoolError> {
+    crate::registry::clear_all_contexts(namespace, WriteAccess::Unowned)
 }
 
 /// Clears and returns all contexts within a namespace and all associated UUIDs from memory.
@@ -331,10 +468,12 @@ pub fn clear_all_contexts(namespace: &str) {
 pub fn drain_namespace(
     namespace: &str,
 ) -> Result<Vec<(String, String, Uuid)>, UuidPoolError> {
-    crate::registry::drain_namespace(namespace)
+    crate::registry::drain_namespace(namespace, WriteAccess::Unowned)
 }
 
-/// Clears and returns all namespaces and all associated UUIDs from memory.
+/// Clears and returns all *unowned* namespaces and all associated UUIDs from memory.
+///
+/// Namespaces owned by an [`OwnedNamespace`] handle are always preserved.
 ///
 /// #### Returns
 /// * `Result<Vec<(String, String, Uuid)>, UuidPoolError>`: all (namespace, context, uuid) triples currently in the pool.
@@ -359,7 +498,7 @@ pub fn drain_context(
     namespace: &str,
     context: &str,
 ) -> Result<Vec<(String, Uuid)>, UuidPoolError> {
-    crate::registry::drain_context(namespace, context)
+    crate::registry::drain_context(namespace, context, WriteAccess::Unowned)
 }
 
 /// Clears and returns all contexts within the given namespace and all associated UUIDs from memory.
@@ -374,5 +513,5 @@ pub fn drain_context(
 pub fn drain_all_contexts(
     namespace: &str,
 ) -> Result<Vec<(String, String, Uuid)>, UuidPoolError> {
-    crate::registry::drain_all_contexts(namespace)
+    crate::registry::drain_all_contexts(namespace, WriteAccess::Unowned)
 }
